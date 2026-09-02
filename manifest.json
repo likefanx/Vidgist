@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Vidgist",
+  "version": "1.1.0",
+  "description": "提取当前 B站或 YouTube 视频字幕，支持本机 AI/程序批量调用。",
+  "permissions": ["storage", "scripting", "tabs", "downloads", "sidePanel", "nativeMessaging"],
+  "host_permissions": [
+    "https://*.bilibili.com/*",
+    "https://*.youtube.com/*",
+    "https://youtu.be/*",
+    "https://api.deepseek.com/*"
+  ],
+  "action": { "default_title": "打开 Vidgist" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.bilibili.com/video/*", "https://www.youtube.com/watch*", "https://www.youtube.com/shorts/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.youtube.com/watch*", "https://www.youtube.com/shorts/*"],
+      "js": ["youtube-capture.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    }
+  ]
+}

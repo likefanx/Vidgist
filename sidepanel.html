@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vidgist</title><link rel="stylesheet" href="sidepanel.css"></head>
+<body>
+  <header><h1>Vidgist</h1><div class="header-actions"><button id="refresh" class="icon-button" title="重新获取当前视频">↻</button><button id="openSettings" class="settings-button">设置</button></div></header>
+  <p id="status" class="status">打开 B站或 YouTube 视频页以开始。</p>
+  <main id="app" hidden>
+    <section class="video"><strong id="title"></strong><span id="meta"></span></section>
+    <section class="summary-controls"><label for="promptSelect">总结方式</label><select id="promptSelect"></select><button id="summarize" class="primary">使用 DeepSeek 生成总结</button></section>
+    <section id="summarySection" class="summary-section" hidden><div class="section-heading"><h2>分析结果</h2><button id="downloadSummary" class="text-button">下载 MD</button></div><div id="summary" class="text-output summary"></div></section>
+    <div class="actions utility-actions"><button id="copy">复制全部字幕</button><button id="downloadTranscript">下载字幕 MD</button></div>
+    <details id="promptEditor"><summary>管理自定义提示词</summary><div class="details-content"><input id="promptName" placeholder="自定义提示词名称"><textarea id="promptText" placeholder="可补充额外要求；保存后会出现在“总结方式”列表中"></textarea><div class="actions"><button id="savePrompt">保存/更新提示词</button><button id="deletePrompt" class="secondary">删除选中提示词</button></div></div></details>
+    <details id="transcriptDetails"><summary>查看完整字幕（时间戳可跳转）</summary><div id="transcript" class="text-output transcript"></div></details>
+  </main>
+  <dialog id="settingsDialog"><form method="dialog"><div class="dialog-heading"><h2>设置</h2><button id="closeSettings" class="icon-button" value="cancel" title="关闭">×</button></div><label>摘要字号 <output id="fontSizeValue" for="fontSize">18px</output><input id="fontSize" type="range" min="16" max="28" step="1" value="18"></label><small>拖动后立即生效并自动保存。</small><label>API Key（只保存在本机）<input id="apiKey" type="password" autocomplete="off" placeholder="留空则不覆盖已保存密钥"></label><label>模型<select id="model"><option value="deepseek-v4-flash">deepseek-v4-flash</option><option value="deepseek-v4-pro">deepseek-v4-pro</option></select></label><small id="keyStatus"></small><div class="actions"><button id="saveSettings" value="default">保存设置</button><button id="clearKey" type="button" class="secondary">清除 Key</button></div></form></dialog>
+  <script src="shared.js"></script><script src="sidepanel.js"></script>
+</body></html>
