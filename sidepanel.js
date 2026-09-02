@@ -38,15 +38,51 @@
     select.value = Array.from(select.options).some(function(option) { return option.value === selected; }) ? selected : 'preset:overview';
     preferences.selectedPromptValue = select.value;
   }
-  function renderTimestampText(container, text) {
+  function appendInline(container, text) {
+    var pattern = /(\[(?:(?:\d{1,2}):)?\d{1,2}:\d{2}\])|(\*\*[^*\n]+\*\*)|(__[^_\n]+__)|(`[^`\n]+`)|(\*[^*\n]+\*)|(_[^_\n]+_)/g;
+    var cursor = 0, match;
+    while ((match = pattern.exec(String(text || '')))) {
+      if (match.index > cursor) container.append(document.createTextNode(text.slice(cursor, match.index)));
+      if (match[1]) {
+        var timestamp = Shared.findTimestamps(match[1])[0];
+        if (timestamp) {
+          var button = document.createElement('button'); button.type = 'button'; button.className = 'timestamp'; button.textContent = timestamp.token;
+          button.addEventListener('click', (function(seconds) { return function() { seek(seconds); }; })(timestamp.seconds)); container.append(button);
+        }
+      } else {
+        var token = match[0], child;
+        if (match[2] || match[3]) { child = document.createElement('strong'); appendInline(child, token.slice(2, -2)); }
+        else if (match[4]) { child = document.createElement('code'); child.textContent = token.slice(1, -1); }
+        else { child = document.createElement('em'); appendInline(child, token.slice(1, -1)); }
+        container.append(child);
+      }
+      cursor = pattern.lastIndex;
+    }
+    if (cursor < String(text || '').length) container.append(document.createTextNode(String(text || '').slice(cursor)));
+  }
+  function isBlockStart(line) { return /^(#{1,6})\s+/.test(line) || /^\s*[-*+]\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line) || /^>\s?/.test(line) || /^\s*(?:---+|\*\*\*+)\s*$/.test(line); }
+  function renderMarkdown(container, text) {
+    var lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
     container.replaceChildren();
-    var cursor = 0;
-    Shared.findTimestamps(text).forEach(function(match) {
-      container.append(document.createTextNode(text.slice(cursor, match.index)));
-      var button = document.createElement('button'); button.type = 'button'; button.className = 'timestamp'; button.textContent = match.token;
-      button.addEventListener('click', function() { seek(match.seconds); }); container.append(button); cursor = match.end;
-    });
-    container.append(document.createTextNode(text.slice(cursor)));
+    for (var i = 0; i < lines.length;) {
+      var line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      var heading = /^(#{1,6})\s+(.*)$/.exec(line);
+      if (heading) { var h = document.createElement('h' + Math.min(6, heading[1].length)); appendInline(h, heading[2]); container.append(h); i++; continue; }
+      if (/^\s*(?:---+|\*\*\*+)\s*$/.test(line)) { container.append(document.createElement('hr')); i++; continue; }
+      var quote = /^>\s?(.*)$/.exec(line);
+      if (quote) { var blockquote = document.createElement('blockquote'); appendInline(blockquote, quote[1]); container.append(blockquote); i++; continue; }
+      var unordered = /^\s*[-*+]\s+(.*)$/.exec(line), ordered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (unordered || ordered) {
+        var list = document.createElement(ordered ? 'ol' : 'ul'), item;
+        while (i < lines.length && (item = (ordered ? /^\s*\d+[.)]\s+(.*)$/ : /^\s*[-*+]\s+(.*)$/).exec(lines[i]))) { var li = document.createElement('li'); appendInline(li, item[1]); list.append(li); i++; }
+        container.append(list); continue;
+      }
+      var paragraph = document.createElement('p'), parts = [];
+      while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) parts.push(lines[i++]);
+      parts.forEach(function(part, index) { if (index) paragraph.append(document.createElement('br')); appendInline(paragraph, part); });
+      container.append(paragraph);
+    }
   }
   async function seek(seconds) {
     var result = await message({ type: 'seekToTimestamp', seconds: seconds });
@@ -59,7 +95,7 @@
     video = null; summary = ''; $('app').hidden = true; $('summarySection').hidden = true; setStatus('正在获取当前视频字幕…');
     var result = await message({ type: 'getTranscript' });
     if (result.error) { setStatus(result.error, true); return; }
-    video = result.video; $('title').textContent = video.title; $('meta').textContent = video.platform + ' · ' + (video.channel || '未知频道') + ' · ' + video.language + ' · ' + video.segments.length + ' 段'; renderTimestampText($('transcript'), video.text); $('app').hidden = false; setStatus('字幕已获取，可生成总结、复制或下载。');
+    video = result.video; $('title').textContent = video.title; $('meta').textContent = video.platform + ' · ' + (video.channel || '未知频道') + ' · ' + video.language + ' · ' + video.segments.length + ' 段'; renderMarkdown($('transcript'), video.text); $('app').hidden = false; setStatus('字幕已获取，可生成总结、复制或下载。');
   }
   $('refresh').addEventListener('click', refresh);
   $('openSettings').addEventListener('click', function() { $('settingsDialog').showModal(); });
@@ -75,7 +111,7 @@
   $('summarize').addEventListener('click', async function() {
     if (!video) return; var selected = choice(); $('summarize').disabled = true; setStatus('DeepSeek 正在生成总结…');
     var result = await message({ type: 'summarize', video: video, presetId: selected.presetId, customPrompt: selected.customPrompt }); $('summarize').disabled = false;
-    if (result.error) return setStatus(result.error, true); summary = result.summary; renderTimestampText($('summary'), summary); $('summarySection').hidden = false; setStatus('总结已生成；点击任意时间戳可跳转视频。');
+    if (result.error) return setStatus(result.error, true); summary = result.summary; renderMarkdown($('summary'), summary); $('summarySection').hidden = false; setStatus('总结已生成；点击任意时间戳可跳转视频。');
   });
   $('downloadSummary').addEventListener('click', async function() { var result = await message({ type: 'download', filename: filename('_字幕与总结'), text: Shared.markdownForSummary(video, summary, choice().name) }); setStatus(result.error || '已打开保存位置。', Boolean(result.error)); });
   $('saveSettings').addEventListener('click', async function(event) { event.preventDefault(); var result = await message({ type: 'saveSettings', apiKey: $('apiKey').value, model: $('model').value }); if (result.error) return setStatus(result.error, true); $('apiKey').value = ''; $('keyStatus').textContent = result.hasApiKey ? '已保存 API Key。' : '尚未保存 API Key。'; $('settingsDialog').close(); setStatus('DeepSeek 设置已保存。'); });
